@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { Camera, MapPin, ArrowUpRight, Edit2, Trash2, Plus } from "lucide-react";
-import { formatRupiah } from "@/lib/utils";
+import { Camera, MapPin, ArrowUpRight, Edit2, Trash2, Plus, Calendar } from "lucide-react";
+import { formatRupiah, formatTanggalIndo } from "@/lib/utils";
 
 export default function UnitTable({
   units,
@@ -22,6 +22,7 @@ export default function UnitTable({
           <tr>
             <th style={{ width: "45px" }}>No</th>
             <th style={{ width: "65px" }}>Foto</th>
+            <th style={{ width: "120px" }}>Tanggal</th>
             <th>Unit Motor</th>
             <th>Harga Beli Total</th>
             <th>Modal Sendiri</th>
@@ -42,6 +43,10 @@ export default function UnitTable({
                   <div className="shimmer" style={{ width: "46px", height: "36px", borderRadius: "6px" }} />
                 </td>
                 <td>
+                  <div className="shimmer" style={{ width: "45px", height: "11px", marginBottom: "4px" }} />
+                  <div className="shimmer" style={{ width: "80px", height: "14px" }} />
+                </td>
+                <td>
                   <div className="shimmer" style={{ width: "160px", height: "16px", marginBottom: "6px" }} />
                   <div className="shimmer" style={{ width: "100px", height: "12px" }} />
                 </td>
@@ -59,7 +64,7 @@ export default function UnitTable({
           ) : units.length === 0 ? (
             /* Empty State */
             <tr>
-              <td colSpan={10} style={{ textAlign: "center", padding: "50px 20px", color: "var(--text-muted)" }}>
+              <td colSpan={11} style={{ textAlign: "center", padding: "50px 20px", color: "var(--text-muted)" }}>
                 <div style={{ fontSize: "15px", fontWeight: 700, color: "var(--navy-dark)", marginBottom: "6px" }}>
                   {totalUnitsCount === 0 ? "Belum Ada Catatan Motor" : "Tidak Ada Motor yang Cocok"}
                 </div>
@@ -83,6 +88,7 @@ export default function UnitTable({
           ) : (
             /* Data Rows */
             units.map((item, idx) => {
+              const isSold = item.statusUnit === "SOLD";
               const hasLoan = item.pinjamAyah > 0;
               const isLoanPending = hasLoan && item.statusPinjaman === "BELUM_DIKEMBALIKAN";
               const modalSendiri = item.modalSendiri ?? (item.hargaBeli - (item.pinjamAyah || 0));
@@ -142,6 +148,32 @@ export default function UnitTable({
                     )}
                   </td>
 
+                  {/* Kolom Khusus: Tanggal Masuk / Laku */}
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {item.createdAt ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span style={{ 
+                          fontSize: "10.5px", 
+                          fontWeight: 700, 
+                          textTransform: "uppercase", 
+                          letterSpacing: "0.4px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "3.5px",
+                          color: isSold ? "var(--color-profit)" : "var(--brand-blue)" 
+                        }}>
+                          <Calendar size={10.5} style={{ flexShrink: 0 }} />
+                          {isSold ? "Terjual" : "Masuk"}
+                        </span>
+                        <span className="mono-num" style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-dark)" }}>
+                          {formatTanggalIndo(item.createdAt)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>-</span>
+                    )}
+                  </td>
+
                   {/* Unit & Tempat Beli */}
                   <td>
                     <div style={{ fontWeight: 700, color: "var(--text-dark)", fontSize: "13.5px" }}>
@@ -154,7 +186,7 @@ export default function UnitTable({
                       </div>
                     )}
                     {item.catatan && (
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: item.tempatBeli ? "1px" : "2px" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
                         {item.catatan}
                       </div>
                     )}
@@ -205,7 +237,7 @@ export default function UnitTable({
                           title="Klik untuk mengubah status lunas pinjaman duit Ayah"
                         >
                           <option value="SUDAH_DIKEMBALIKAN">✓ Lunas</option>
-                          <option value="BELUM_DIKEMBALIKAN">Belum Balik</option>
+                          <option value="BELUM_DIKEMBALIKAN">Belum Lunas</option>
                         </select>
                       </div>
                     )}

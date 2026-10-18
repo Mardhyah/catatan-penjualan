@@ -1,12 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
-import { AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { AlertCircle, Calendar } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
+
+const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export default function SellUnitModal({ isOpen, unit, onClose, onConfirmSell }) {
   const [sellPriceInput, setSellPriceInput] = useState("");
+  const [tanggalTerjual, setTanggalTerjual] = useState('');
   const [kembalikanDuitAyah, setKembalikanDuitAyah] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSellPriceInput("");
+      setTanggalTerjual(getTodayDateString());
+      setKembalikanDuitAyah(true);
+    }
+  }, [isOpen]);
 
   if (!isOpen || !unit) return null;
 
@@ -19,10 +36,16 @@ export default function SellUnitModal({ isOpen, unit, onClose, onConfirmSell }) 
       alert("Harap masukkan harga jual yang valid!");
       return;
     }
+
+    const soldDateIso = tanggalTerjual 
+      ? new Date(`${tanggalTerjual}T12:00:00Z`).toISOString() 
+      : new Date().toISOString();
+
     onConfirmSell({
       sellPrice,
       profit,
-      kembalikanDuitAyah
+      kembalikanDuitAyah,
+      soldDate: soldDateIso
     });
     setSellPriceInput("");
     onClose();
@@ -48,6 +71,23 @@ export default function SellUnitModal({ isOpen, unit, onClose, onConfirmSell }) 
               </div>
             </div>
 
+            {/* Input Tanggal Terjual */}
+            <div className="field-group">
+              <label className="field-label" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                <Calendar size={13} style={{ color: "var(--brand-blue)" }} /> Tanggal Terjual *
+              </label>
+              <input
+                type="date"
+                required
+                value={tanggalTerjual}
+                onChange={(e) => setTanggalTerjual(e.target.value)}
+                className="field-input"
+              />
+              <span className="field-helper">
+                Menentukan keuntungan motor ini masuk ke rekap bulan apa
+              </span>
+            </div>
+
             {/* Input Harga Jual */}
             <div className="field-group">
               <label className="field-label">Harga Terjual Riil (Rp) *</label>
@@ -55,7 +95,7 @@ export default function SellUnitModal({ isOpen, unit, onClose, onConfirmSell }) 
                 type="number"
                 required
                 autoFocus
-                placeholder="Masukkan nominal harga terjual"
+                placeholder="Contoh: 14500000"
                 value={sellPriceInput}
                 onChange={(e) => setSellPriceInput(e.target.value)}
                 onWheel={(e) => e.target.blur()}

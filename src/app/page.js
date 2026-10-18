@@ -11,15 +11,18 @@ import SellUnitModal from "@/components/modals/SellUnitModal";
 import PhotoModal from "@/components/modals/PhotoModal";
 import DeleteModal from "@/components/modals/DeleteModal";
 import SuccessModal from "@/components/modals/SuccessModal";
+import MonthlyReportModal from "@/components/modals/MonthlyReportModal";
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { mapFromSupabase, mapToSupabase, exportToCSV } from "@/lib/utils";
+import { mapFromSupabase, mapToSupabase, exportToCSV, getYearMonth, formatBulanTahun } from "@/lib/utils";
 
 export default function CleanPenjualan2StrokePage() {
   const [units, setUnits] = useState([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL"); // ALL, READY, SOLD
   const [filterPinjaman, setFilterPinjaman] = useState("ALL"); // ALL, PENDING
+  const [selectedMonth, setSelectedMonth] = useState("ALL"); // ALL, atau format YYYY-MM
+  const [currentYm, setCurrentYm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals state
@@ -29,6 +32,7 @@ export default function CleanPenjualan2StrokePage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showMonthlyReportModal, setShowMonthlyReportModal] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -37,6 +41,7 @@ export default function CleanPenjualan2StrokePage() {
   // Load from Supabase (or fallback to LocalStorage)
   useEffect(() => {
     loadData();
+    setCurrentYm(getYearMonth(new Date()));
 
     // Matikan fitur mouse wheel & arrow keys mengubah angka otomatis
     const handleGlobalWheel = (e) => {
@@ -134,6 +139,7 @@ export default function CleanPenjualan2StrokePage() {
     const isSold = formData.statusUnit === "SOLD";
     const jual = isSold ? Number(formData.hargaJual) || 0 : 0;
     const profit = isSold ? (formData.profit ? Number(formData.profit) : jual - beli) : 0;
+    const createdAt = formData.createdAt || new Date().toISOString();
 
     const newUnit = {
       id: Date.now().toString(),
@@ -148,7 +154,8 @@ export default function CleanPenjualan2StrokePage() {
       statusUnit: formData.statusUnit,
       statusPinjaman: pinjam > 0 ? formData.statusPinjaman : "TIDAK_PINJAM",
       foto: formData.foto || "",
-      catatan: formData.catatan || ""
+      catatan: formData.catatan || "",
+      createdAt
     };
 
     const nextUnits = [newUnit, ...units];
@@ -188,6 +195,7 @@ export default function CleanPenjualan2StrokePage() {
     const isSold = formData.statusUnit === "SOLD";
     const jual = isSold ? Number(formData.hargaJual) || 0 : 0;
     const profit = isSold ? (formData.profit ? Number(formData.profit) : jual - beli) : 0;
+    const createdAt = formData.createdAt || selectedUnit.createdAt || new Date().toISOString();
 
     const updated = units.map((u) => {
       if (u.id === selectedUnit.id) {
@@ -203,7 +211,8 @@ export default function CleanPenjualan2StrokePage() {
           statusUnit: formData.statusUnit,
           statusPinjaman: pinjam > 0 ? formData.statusPinjaman : "TIDAK_PINJAM",
           foto: formData.foto || "",
-          catatan: formData.catatan || ""
+          catatan: formData.catatan || "",
+          createdAt
         };
       }
       return u;
@@ -225,6 +234,7 @@ export default function CleanPenjualan2StrokePage() {
           status_pinjaman: pinjam > 0 ? formData.statusPinjaman : "TIDAK_PINJAM",
           foto: formData.foto || "",
           catatan: formData.catatan || "",
+          created_at: createdAt,
           updated_at: new Date().toISOString()
         };
         await supabase.from("penjualan_motor").update(payload).eq("id", selectedUnit.id);
@@ -235,7 +245,7 @@ export default function CleanPenjualan2StrokePage() {
   };
 
   // Submit Sell Unit
-  const handleConfirmSell = async ({ sellPrice, profit, kembalikanDuitAyah }) => {
+  const handleConfirmSell = async ({ sellPrice, profit, kembalikanDuitAyah, soldDate }) => {
     if (!selectedUnit) return;
 
     const updatedStatusPinjaman =
@@ -245,6 +255,8 @@ export default function CleanPenjualan2StrokePage() {
           : selectedUnit.statusPinjaman
         : "TIDAK_PINJAM";
 
+    const updatedCreatedAt = soldDate || selectedUnit.createdAt || new Date().toISOString();
+
     const updated = units.map((u) => {
       if (u.id === selectedUnit.id) {
         return {
@@ -252,7 +264,8 @@ export default function CleanPenjualan2StrokePage() {
           hargaJual: sellPrice,
           profit,
           statusUnit: "SOLD",
-          statusPinjaman: updatedStatusPinjaman
+          statusPinjaman: updatedStatusPinjaman,
+          createdAt: updatedCreatedAt
         };
       }
       return u;
@@ -269,6 +282,7 @@ export default function CleanPenjualan2StrokePage() {
             profit,
             status_unit: "SOLD",
             status_pinjaman: updatedStatusPinjaman,
+            created_at: updatedCreatedAt,
             updated_at: new Date().toISOString()
           })
           .eq("id", selectedUnit.id);
@@ -278,24 +292,22 @@ export default function CleanPenjualan2StrokePage() {
     }
   };
 
-  // Delete Unit: Buka Modal Konfirmasi
+  // Buka Modal Hapus
   const handleOpenDelete = (unit) => {
     setUnitToDelete(unit);
     setShowDeleteModal(true);
   };
 
-  // Eksekusi Hapus Unit
-  const handleConfirmDelete = async (unit) => {
-    if (!unit) return;
+  // Eksekusi Hapus dari Database & State
+  const handleConfirmDelete = async () => {
+    if (!unitToDelete) return;
     setIsDeleting(true);
 
-    // 1. Optimistic functional update ke state lokal & LocalStorage
-    setUnits((prevUnits) => {
-      const updated = prevUnits.filter((u) => String(u.id) !== String(unit.id));
-      localStorage.setItem("penjualan_2stroke_clean_v5", JSON.stringify(updated));
-      return updated;
-    });
+    const unit = unitToDelete;
 
+    // 1. Hapus dari State lokal
+    const nextUnits = units.filter((u) => u.id !== unit.id);
+    saveUnits(nextUnits);
     setShowDeleteModal(false);
     setUnitToDelete(null);
     setIsDeleting(false);
@@ -321,21 +333,96 @@ export default function CleanPenjualan2StrokePage() {
     }
   };
 
-  // Overview Statistics
-  const stats = useMemo(() => {
-    let totalProfit = 0;
-    let duitAyahBelumKembali = 0;
-    let totalOmset = 0;
-    let modalTertahanReady = 0;
-    let unitSold = 0;
-    let unitReady = 0;
-    let pendingLoanUnitsCount = 0;
+  // Daftar Bulan yang Tersedia untuk Filter
+  const availableMonths = useMemo(() => {
+    const monthMap = new Map();
+
+    if (currentYm) {
+      monthMap.set(currentYm, {
+        yearMonth: currentYm,
+        label: formatBulanTahun(currentYm),
+        isCurrentMonth: true
+      });
+    }
+
+    units.forEach((u) => {
+      const ym = getYearMonth(u.createdAt);
+      if (ym && !monthMap.has(ym)) {
+        monthMap.set(ym, {
+          yearMonth: ym,
+          label: formatBulanTahun(ym),
+          isCurrentMonth: ym === currentYm
+        });
+      }
+    });
+
+    return Array.from(monthMap.values()).sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
+  }, [units, currentYm]);
+
+  // Data Rekap Bulanan untuk Modal
+  const monthlyBreakdownData = useMemo(() => {
+    const groups = {};
 
     units.forEach((u) => {
       if (u.statusUnit === "SOLD") {
-        unitSold += 1;
-        totalProfit += Number(u.profit) || 0;
-        totalOmset += Number(u.hargaJual) || 0;
+        const ym = getYearMonth(u.createdAt) || currentYm;
+        if (!groups[ym]) {
+          groups[ym] = {
+            yearMonth: ym,
+            label: formatBulanTahun(ym),
+            isCurrentMonth: ym === currentYm,
+            unitCount: 0,
+            totalOmset: 0,
+            totalModal: 0,
+            totalProfit: 0
+          };
+        }
+        groups[ym].unitCount += 1;
+        groups[ym].totalOmset += Number(u.hargaJual) || 0;
+        groups[ym].totalModal += Number(u.hargaBeli) || 0;
+        groups[ym].totalProfit += Number(u.profit) || 0;
+      }
+    });
+
+    return Object.values(groups).sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
+  }, [units, currentYm]);
+
+  // Overview Statistics (All-Time & Bulanan)
+  const stats = useMemo(() => {
+    let allTimeProfit = 0;
+    let allTimeOmset = 0;
+    let allTimeSoldUnits = 0;
+    let duitAyahBelumKembali = 0;
+    let modalTertahanReady = 0;
+    let unitReady = 0;
+    let pendingLoanUnitsCount = 0;
+
+    let selectedMonthProfit = 0;
+    let selectedMonthOmset = 0;
+    let selectedMonthSoldUnits = 0;
+
+    let currentMonthProfit = 0;
+
+    units.forEach((u) => {
+      const uYm = getYearMonth(u.createdAt);
+
+      if (u.statusUnit === "SOLD") {
+        allTimeSoldUnits += 1;
+        const profitVal = Number(u.profit) || 0;
+        const omsetVal = Number(u.hargaJual) || 0;
+
+        allTimeProfit += profitVal;
+        allTimeOmset += omsetVal;
+
+        if (currentYm && uYm === currentYm) {
+          currentMonthProfit += profitVal;
+        }
+
+        if (selectedMonth !== "ALL" && uYm === selectedMonth) {
+          selectedMonthProfit += profitVal;
+          selectedMonthOmset += omsetVal;
+          selectedMonthSoldUnits += 1;
+        }
       } else {
         unitReady += 1;
         modalTertahanReady += Number(u.hargaBeli) || 0;
@@ -348,15 +435,21 @@ export default function CleanPenjualan2StrokePage() {
     });
 
     return {
-      totalProfit,
+      allTimeProfit,
+      allTimeOmset,
+      allTimeSoldUnits,
+      selectedMonthProfit,
+      selectedMonthOmset,
+      selectedMonthSoldUnits,
+      currentMonthProfit,
+      currentMonthLabel: currentYm ? formatBulanTahun(currentYm) : "Bulan Ini",
       duitAyahBelumKembali,
-      totalOmset,
       modalTertahanReady,
-      unitSold,
       unitReady,
+      unitSold: allTimeSoldUnits,
       pendingLoanUnitsCount
     };
-  }, [units]);
+  }, [units, selectedMonth, currentYm]);
 
   // Filtered Units
   const filteredUnits = useMemo(() => {
@@ -379,9 +472,14 @@ export default function CleanPenjualan2StrokePage() {
         matchPinjaman = u.pinjamAyah > 0 && u.statusPinjaman === "BELUM_DIKEMBALIKAN";
       }
 
-      return matchSearch && matchStatus && matchPinjaman;
+      let matchMonth = true;
+      if (selectedMonth !== "ALL") {
+        matchMonth = getYearMonth(u.createdAt) === selectedMonth;
+      }
+
+      return matchSearch && matchStatus && matchPinjaman && matchMonth;
     });
-  }, [units, search, filterStatus, filterPinjaman]);
+  }, [units, search, filterStatus, filterPinjaman, selectedMonth]);
 
   return (
     <div className="dashboard-container">
@@ -391,8 +489,15 @@ export default function CleanPenjualan2StrokePage() {
         onOpenAddModal={() => setShowAddModal(true)}
       />
 
-      {/* Overview Bento Cards */}
-      <SummaryCards stats={stats} isLoading={isLoading} />
+      {/* Overview Bento Cards (Dengan Filter Bulan & Rekap Per Bulan) */}
+      <SummaryCards 
+        stats={stats} 
+        isLoading={isLoading}
+        selectedMonth={selectedMonth}
+        onSelectMonth={setSelectedMonth}
+        availableMonths={availableMonths}
+        onOpenMonthlyReport={() => setShowMonthlyReportModal(true)}
+      />
 
       {/* Filter and Search Bar */}
       <FilterBar
@@ -432,7 +537,7 @@ export default function CleanPenjualan2StrokePage() {
         onAddUnit={handleAddUnit}
       />
 
-      {/* Modal: Sukses Tambah Unit (Otomatis Hilang dalam 2 detik) */}
+      {/* Modal: Sukses Tambah Unit */}
       <SuccessModal
         isOpen={showSuccessModal}
         unit={savedUnit}
@@ -480,6 +585,13 @@ export default function CleanPenjualan2StrokePage() {
       <PhotoModal
         photoData={previewPhoto}
         onClose={() => setPreviewPhoto(null)}
+      />
+
+      {/* Modal: Laporan Rekap Per Bulan */}
+      <MonthlyReportModal
+        isOpen={showMonthlyReportModal}
+        onClose={() => setShowMonthlyReportModal(false)}
+        monthlyData={monthlyBreakdownData}
       />
     </div>
   );

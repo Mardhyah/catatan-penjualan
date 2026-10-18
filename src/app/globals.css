@@ -144,19 +144,23 @@ body {
 }
 
 .brand-icon-box {
-  width: 46px;
-  height: 46px;
-  background-color: var(--brand-blue);
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--brand-blue) 0%, #0A2F8D 100%);
   color: #FFFFFF;
-  border-radius: var(--radius-md);
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 16px;
-  letter-spacing: -0.5px;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
-  transition: background-color 0.2s ease;
+  box-shadow: 0 4px 14px rgba(15, 66, 192, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.brand-icon-box:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(15, 66, 192, 0.38);
 }
 
 .brand-logo-img {
@@ -506,6 +510,126 @@ body {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
+/* Period Pills Bar */
+.period-bar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.period-pills-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  padding: 2px 0;
+}
+
+.period-pills-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.period-label-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.period-pill-group {
+  display: inline-flex;
+  align-items: center;
+  background-color: #F1F5F9;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-light);
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.period-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-body);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.period-pill:hover {
+  color: var(--brand-blue);
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.period-pill.active {
+  background-color: var(--brand-blue);
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(15, 66, 192, 0.28);
+}
+
+.period-current-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  letter-spacing: 0.2px;
+}
+
+.period-pill.active .period-current-badge {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
+.period-pill:not(.active) .period-current-badge {
+  background-color: var(--brand-blue-light);
+  color: var(--brand-blue);
+}
+
+.btn-rekap-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--brand-blue-light);
+  color: var(--brand-blue);
+  border: 1px solid var(--brand-blue-border);
+  padding: 7px 14px;
+  border-radius: var(--radius-full);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.btn-rekap-pill:hover {
+  background-color: var(--brand-blue);
+  color: #FFFFFF;
+  border-color: var(--brand-blue);
+  box-shadow: 0 2px 8px rgba(15, 66, 192, 0.25);
+}
+
 /* Table Style - Sleek Deep Header & Pristine White Body */
 .table-card {
   background-color: var(--bg-card);
@@ -826,7 +950,12 @@ input[type="number"] {
     margin-bottom: 16px;
   }
   .brand-wrapper {
-    gap: 10px;
+    gap: 12px;
+  }
+  .brand-icon-box {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
   }
   .brand-text h1 {
     font-size: 16px;
@@ -844,6 +973,22 @@ input[type="number"] {
   .header-tools .btn {
     flex: 1;
     justify-content: center;
+  }
+  .period-bar-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .period-pills-scroll {
+    width: 100%;
+    padding-bottom: 4px;
+  }
+  .btn-rekap-pill {
+    width: 100%;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
   }
 }
 

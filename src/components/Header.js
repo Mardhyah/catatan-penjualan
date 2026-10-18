@@ -1,26 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Download, Plus } from "lucide-react";
 
 export default function Header({ onExportCSV, onOpenAddModal }) {
-  const [logoError, setLogoError] = useState(false);
-
   return (
     <header className="header-bar">
       <div className="brand-wrapper">
-        {!logoError ? (
-          <img 
-            src="/logo-2stroke.png" 
-            alt="2Stroke Surabaya" 
-            className="brand-logo-img"
-            onError={() => setLogoError(true)}
-          />
-        ) : (
-          <div className="brand-icon-box">2S</div>
-        )}
         <div className="brand-text">
-          <h1>DATA PENJUALAN 2 STROKE SURABAYA</h1>
+          <h1>
+            DATA PENJUALAN <span style={{ color: "var(--brand-blue)" }}>2 STROKE</span> SURABAYA
+          </h1>
           <p>Sistem Pengelolaan Keuangan dan Profit Penjualan</p>
         </div>
       </div>

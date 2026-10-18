@@ -8,6 +8,46 @@ export const formatRupiah = (val) => {
   }).format(val);
 };
 
+// Format tanggal ke format Indonesia ringkas (misal: 18 Okt 2026)
+export const formatTanggalIndo = (val) => {
+  if (!val) return "-";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  }).format(d);
+};
+
+// Format bulan dan tahun Indonesia (misal: Oktober 2026)
+export const formatBulanTahun = (val) => {
+  if (!val) return "-";
+  let d;
+  if (typeof val === "string" && val.length === 7) {
+    // format YYYY-MM
+    const [year, month] = val.split("-");
+    d = new Date(Number(year), Number(month) - 1, 1);
+  } else {
+    d = new Date(val);
+  }
+  if (isNaN(d.getTime())) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    month: "long",
+    year: "numeric"
+  }).format(d);
+};
+
+// Ambil format YYYY-MM dari string tanggal
+export const getYearMonth = (val) => {
+  if (!val) return "";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+};
+
 // Mapper dari Supabase (snake_case -> camelCase)
 export const mapFromSupabase = (row) => ({
   id: row.id.toString(),
@@ -22,7 +62,8 @@ export const mapFromSupabase = (row) => ({
   statusUnit: row.status_unit || "READY",
   statusPinjaman: row.status_pinjaman || "TIDAK_PINJAM",
   foto: row.foto || "",
-  catatan: row.catatan || ""
+  catatan: row.catatan || "",
+  createdAt: row.created_at || new Date().toISOString()
 });
 
 // Mapper ke Supabase (camelCase -> snake_case)
@@ -38,7 +79,8 @@ export const mapToSupabase = (item) => ({
   status_unit: item.statusUnit,
   status_pinjaman: item.statusPinjaman,
   foto: item.foto || "",
-  catatan: item.catatan || ""
+  catatan: item.catatan || "",
+  created_at: item.createdAt || new Date().toISOString()
 });
 
 // Kompresi foto di sisi browser (Max 800px dimensi, ~80-120KB)
@@ -82,12 +124,13 @@ export const compressPhoto = (file, callback) => {
 
 // Export array units ke CSV dan unduh di browser
 export const exportToCSV = (units) => {
-  let csv = "No,Unit Motor,Tempat Beli,Harga Beli Total,Modal Sendiri,Duit Ayah,Status Pinjaman,Harga Terjual,Profit Bersih,Status Unit,Catatan\n";
+  let csv = "No,Tanggal,Unit Motor,Tempat Beli,Harga Beli Total,Modal Sendiri,Duit Ayah,Status Pinjaman,Harga Terjual,Profit Bersih,Status Unit,Catatan\n";
   
   units.forEach((u, i) => {
     const modalS = u.modalSendiri ?? (u.hargaBeli - (u.pinjamAyah || 0));
     const row = [
       i + 1,
+      `"${formatTanggalIndo(u.createdAt)}"`,
       `"${u.unit.replace(/"/g, '""')}"`,
       `"${(u.tempatBeli || "").replace(/"/g, '""')}"`,
       u.hargaBeli,
