@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap');
 
 :root,
 [data-blue-theme="royal"] {
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'Plus Jakarta Sans', -apple-system, sans-serif;
 
   /* Theme 1: Royal Navy (Yamaha Racing Spirit - Default) */
   --brand-blue: #0F42C0;            /* Royal Blue tegas & elegan */
@@ -372,6 +372,8 @@ body {
 
 .bento-val {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on;
   font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.6px;
@@ -551,6 +553,8 @@ body {
 .mono-num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on;
+  letter-spacing: -0.2px;
   white-space: nowrap;
 }
 
@@ -882,7 +886,7 @@ input[type="number"] {
   color: #E2E8F0;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
   overflow-x: auto;
   line-height: 1.5;
