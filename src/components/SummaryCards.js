@@ -10,7 +10,6 @@ export default function SummaryCards({ stats, isLoading }) {
       <div className="bento-card">
         <div className="bento-head">
           <div className="bento-label-wrap">
-            <span className="card-indicator indicator-profit" />
             <span className="bento-label">Total Keuntungan Bersih</span>
           </div>
         </div>
@@ -30,7 +29,6 @@ export default function SummaryCards({ stats, isLoading }) {
       <div className="bento-card">
         <div className="bento-head">
           <div className="bento-label-wrap">
-            <span className="card-indicator indicator-danger" />
             <span className="bento-label">Duit Ayah (Belum Balik)</span>
           </div>
         </div>
@@ -55,7 +53,6 @@ export default function SummaryCards({ stats, isLoading }) {
       <div className="bento-card">
         <div className="bento-head">
           <div className="bento-label-wrap">
-            <span className="card-indicator indicator-blue" />
             <span className="bento-label">Total Terjual</span>
           </div>
         </div>
@@ -75,7 +72,6 @@ export default function SummaryCards({ stats, isLoading }) {
       <div className="bento-card">
         <div className="bento-head">
           <div className="bento-label-wrap">
-            <span className="card-indicator indicator-amber" />
             <span className="bento-label">Modal Tertahan Garasi</span>
           </div>
         </div>

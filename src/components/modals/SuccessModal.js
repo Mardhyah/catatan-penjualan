@@ -71,7 +71,7 @@ export default function SuccessModal({ isOpen, unit, onClose }) {
         }}>
           <div style={{
             height: "100%",
-            background: "var(--brand-blue, #1D4ED8)",
+            background: "var(--brand-blue, #0F42C0)",
             width: "100%",
             animation: "shrinkBar 2s linear forwards"
           }} />

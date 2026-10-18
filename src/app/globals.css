@@ -6,11 +6,11 @@
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Theme 1: Royal Navy (Yamaha Racing Spirit - Default) */
-  --brand-blue: #1D4ED8;            /* Royal Blue tegas & elegan */
-  --brand-blue-hover: #1E40AF;
-  --brand-blue-light: #EFF6FF;      /* Ice Blue lembut */
-  --brand-blue-border: #BFDBFE;
-  --brand-blue-subtle: rgba(29, 78, 216, 0.08);
+  --brand-blue: #0F42C0;            /* Royal Blue tegas & elegan */
+  --brand-blue-hover: #0C3499;
+  --brand-blue-light: #EEF3FE;      /* Ice Blue lembut */
+  --brand-blue-border: #BDD2F9;
+  --brand-blue-subtle: rgba(15, 66, 192, 0.08);
 
   --table-header-bg: #0F2744;       /* Deep Midnight Blue - Mewah & Berkelas */
   --table-header-border: #1E3A8A;
@@ -23,9 +23,9 @@
 
   --border-light: #E2E8F0;          /* Border slate halus */
   --border-medium: #CBD5E1;         /* Border slate sedang */
-  --border-brand: #1D4ED8;
+  --border-brand: #0F42C0;
 
-  --text-brand: #1D4ED8;
+  --text-brand: #0F42C0;
   --text-dark: #0F172A;             /* Slate 900 tajam & mudah dibaca */
   --text-body: #334155;             /* Slate 700 */
   --text-muted: #64748B;            /* Slate 500 */
@@ -80,8 +80,8 @@
   /* Theme 3: Cobalt Modern (High Contrast & Modern Tech) */
   --brand-blue: #2563EB;
   --brand-blue-hover: #1D4ED8;
-  --brand-blue-light: #EFF6FF;
-  --brand-blue-border: #BFDBFE;
+  --brand-blue-light: #EEF3FE;
+  --brand-blue-border: #BDD2F9;
   --brand-blue-subtle: rgba(37, 99, 235, 0.08);
 
   --table-header-bg: #1E293B;       /* Charcoal Navy Slate */
@@ -246,7 +246,7 @@ body {
 }
 
 .dot-royal {
-  background-color: #1D4ED8;
+  background-color: #0F42C0;
 }
 
 .dot-sapphire {
