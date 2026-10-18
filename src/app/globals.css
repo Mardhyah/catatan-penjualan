@@ -754,3 +754,48 @@ body {
     align-items: flex-start;
   }
 }
+
+/* Database Connection Badge */
+.db-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.db-badge.connected {
+  background-color: var(--color-profit-bg);
+  color: var(--color-profit);
+  border-color: var(--color-profit-border);
+}
+
+.db-badge.local {
+  background-color: #FFFFFF;
+  color: var(--text-body);
+  border-color: var(--border-medium);
+}
+
+.db-badge.local:hover {
+  background-color: var(--brand-blue-light);
+  color: var(--brand-blue);
+  border-color: var(--brand-blue-border);
+}
+
+.code-box {
+  background-color: #0F172A;
+  color: #E2E8F0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-x: auto;
+  line-height: 1.5;
+}

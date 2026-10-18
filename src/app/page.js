@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { 
   Plus, 
   Search, 
   Download, 
-  TrendingUp, 
-  Banknote, 
-  Package, 
   ArrowUpRight, 
   Edit2, 
   Trash2, 
@@ -15,7 +13,10 @@ import {
   RotateCcw,
   AlertCircle,
   LayoutGrid,
-  Table as TableIcon
+  Table as TableIcon,
+  Database,
+  ExternalLink,
+  Copy
 } from "lucide-react";
 
 // Data riil 100% persis dari foto spreadsheet "BELIAN AKBAR"
@@ -172,12 +173,75 @@ const formatRupiah = (val) => {
   }).format(val);
 };
 
+// Helper Mappers for Supabase (camelCase <-> snake_case)
+const mapFromSupabase = (row) => ({
+  id: row.id.toString(),
+  no: row.no,
+  unit: row.unit,
+  hargaBeli: Number(row.harga_beli) || 0,
+  modalSendiri: Number(row.modal_sendiri) || 0,
+  pinjamAyah: Number(row.pinjam_ayah) || 0,
+  hargaJual: Number(row.harga_jual) || 0,
+  profit: Number(row.profit) || 0,
+  statusUnit: row.status_unit || "READY",
+  statusPinjaman: row.status_pinjaman || "TIDAK_PINJAM",
+  catatan: row.catatan || ""
+});
+
+const mapToSupabase = (item) => ({
+  no: item.no,
+  unit: item.unit,
+  harga_beli: Number(item.hargaBeli) || 0,
+  modal_sendiri: Number(item.modalSendiri) || 0,
+  pinjam_ayah: Number(item.pinjamAyah) || 0,
+  harga_jual: Number(item.hargaJual) || 0,
+  profit: Number(item.profit) || 0,
+  status_unit: item.statusUnit,
+  status_pinjaman: item.statusPinjaman,
+  catatan: item.catatan || ""
+});
+
+const SQL_SCHEMA_CODE = `-- 1. Buat Tabel penjualan_motor
+CREATE TABLE IF NOT EXISTS penjualan_motor (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  no INTEGER,
+  unit TEXT NOT NULL,
+  harga_beli BIGINT NOT NULL DEFAULT 0,
+  modal_sendiri BIGINT NOT NULL DEFAULT 0,
+  pinjam_ayah BIGINT NOT NULL DEFAULT 0,
+  harga_jual BIGINT NOT NULL DEFAULT 0,
+  profit BIGINT NOT NULL DEFAULT 0,
+  status_unit TEXT NOT NULL DEFAULT 'READY',
+  status_pinjaman TEXT NOT NULL DEFAULT 'TIDAK_PINJAM',
+  catatan TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. Aktifkan Akses RLS
+ALTER TABLE penjualan_motor ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Akses publik baca penjualan" ON penjualan_motor FOR SELECT USING (true);
+CREATE POLICY "Akses publik tambah penjualan" ON penjualan_motor FOR INSERT WITH CHECK (true);
+CREATE POLICY "Akses publik update penjualan" ON penjualan_motor FOR UPDATE USING (true);
+CREATE POLICY "Akses publik hapus penjualan" ON penjualan_motor FOR DELETE USING (true);`;
+
 export default function PremiumCleanPage() {
   const [units, setUnits] = useState([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL"); // ALL, READY, SOLD
   const [filterPinjaman, setFilterPinjaman] = useState("ALL"); // ALL, PENDING
   const [viewMode, setViewMode] = useState("table"); // 'table' | 'grid'
+
+  // Database Connection State
+  const [dbStatus, setDbStatus] = useState(isSupabaseConfigured ? "connected" : "local");
+  const [showDbModal, setShowDbModal] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SQL_SCHEMA_CODE);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -200,8 +264,39 @@ export default function PremiumCleanPage() {
   const [sellPriceInput, setSellPriceInput] = useState("");
   const [kembalikanDuitAyahSaatJual, setKembalikanDuitAyahSaatJual] = useState(true);
 
-  // Load from LocalStorage
+  // Load from Supabase (or fallback to LocalStorage)
   useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("penjualan_motor")
+          .select("*")
+          .order("no", { ascending: true });
+
+        if (!error && data && data.length > 0) {
+          const mapped = data.map(mapFromSupabase);
+          setUnits(mapped);
+          setDbStatus("connected");
+          localStorage.setItem("penjualan_2stroke_clean_v5", JSON.stringify(mapped));
+          return;
+        } else if (!error && (!data || data.length === 0)) {
+          // Table is empty, seed with INITIAL_DATA
+          const seed = INITIAL_DATA.map(mapToSupabase);
+          await supabase.from("penjualan_motor").insert(seed);
+          setUnits(INITIAL_DATA);
+          setDbStatus("connected");
+          return;
+        }
+      } catch (err) {
+        console.warn("Supabase fetch failed, falling back to LocalStorage:", err);
+      }
+    }
+
+    // Fallback: LocalStorage
     const saved = localStorage.getItem("penjualan_2stroke_clean_v5");
     if (saved) {
       try {
@@ -212,32 +307,54 @@ export default function PremiumCleanPage() {
     } else {
       setUnits(INITIAL_DATA);
     }
-  }, []);
+    setDbStatus(isSupabaseConfigured ? "connected" : "local");
+  };
 
   const saveUnits = (newUnits) => {
     setUnits(newUnits);
     localStorage.setItem("penjualan_2stroke_clean_v5", JSON.stringify(newUnits));
   };
 
-  const handleResetData = () => {
+  const handleResetData = async () => {
     if (confirm("Kembalikan data ke daftar foto spreadsheet asli?")) {
       saveUnits(INITIAL_DATA);
+      if (isSupabaseConfigured && supabase) {
+        try {
+          await supabase.from("penjualan_motor").delete().neq("no", 999999);
+          await supabase.from("penjualan_motor").insert(INITIAL_DATA.map(mapToSupabase));
+        } catch (e) {
+          console.error("Supabase reset error:", e);
+        }
+      }
     }
   };
 
   // Quick Action: Kembalikan Duit Ayah
-  const handleMarkDuitAyahKembali = (id) => {
+  const handleMarkDuitAyahKembali = async (id) => {
+    let targetCatatan = "";
     const updated = units.map((u) => {
       if (u.id === id) {
+        targetCatatan = (u.catatan ? u.catatan + " | " : "") + "Duit Ayah sudah dikembalikan lunas.";
         return {
           ...u,
           statusPinjaman: "SUDAH_DIKEMBALIKAN",
-          catatan: (u.catatan ? u.catatan + " | " : "") + "Duit Ayah sudah dikembalikan lunas."
+          catatan: targetCatatan
         };
       }
       return u;
     });
     saveUnits(updated);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from("penjualan_motor").update({
+          status_pinjaman: "SUDAH_DIKEMBALIKAN",
+          catatan: targetCatatan
+        }).eq("id", id);
+      } catch (e) {
+        console.error("Supabase update loan error:", e);
+      }
+    }
   };
 
   // Open Sell Modal
@@ -249,14 +366,15 @@ export default function PremiumCleanPage() {
   };
 
   // Confirm Sell
-  const handleConfirmSell = () => {
+  const handleConfirmSell = async () => {
     if (!selectedUnit || !sellPriceInput) return;
     const jual = Number(sellPriceInput) || 0;
     const profit = jual - selectedUnit.hargaBeli;
 
+    let targetUpdated = null;
     const updated = units.map((u) => {
       if (u.id === selectedUnit.id) {
-        return {
+        targetUpdated = {
           ...u,
           hargaJual: jual,
           statusUnit: "SOLD",
@@ -264,6 +382,7 @@ export default function PremiumCleanPage() {
           statusPinjaman: (u.pinjamAyah > 0 && kembalikanDuitAyahSaatJual) ? "SUDAH_DIKEMBALIKAN" : u.statusPinjaman,
           catatan: (u.catatan ? u.catatan + " | " : "") + `Terjual ${formatRupiah(jual)}`
         };
+        return targetUpdated;
       }
       return u;
     });
@@ -271,6 +390,20 @@ export default function PremiumCleanPage() {
     saveUnits(updated);
     setShowSellModal(false);
     setSelectedUnit(null);
+
+    if (isSupabaseConfigured && supabase && targetUpdated) {
+      try {
+        await supabase.from("penjualan_motor").update({
+          harga_jual: targetUpdated.hargaJual,
+          status_unit: "SOLD",
+          profit: targetUpdated.profit,
+          status_pinjaman: targetUpdated.statusPinjaman,
+          catatan: targetUpdated.catatan
+        }).eq("id", selectedUnit.id);
+      } catch (e) {
+        console.error("Supabase sell error:", e);
+      }
+    }
   };
 
   // Open Edit Modal
@@ -290,11 +423,11 @@ export default function PremiumCleanPage() {
   };
 
   // Save Edit
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!selectedUnit || !formData.unit) return;
     const beli = Number(formData.hargaBeli) || 0;
-    const modalS = Number(formData.modalSendiri) || 0;
     const pinjamA = Number(formData.pinjamAyah) || 0;
+    const modalS = Number(formData.modalSendiri) || (beli - pinjamA);
     const jual = Number(formData.hargaJual) || 0;
     const isSold = formData.statusUnit === "SOLD";
     const profit = isSold ? (formData.profit ? Number(formData.profit) : jual - beli) : 0;
@@ -306,26 +439,22 @@ export default function PremiumCleanPage() {
       pinjamanStatus = "BELUM_DIKEMBALIKAN";
     }
 
-    let rincianText = "";
-    if (pinjamA > 0) {
-      rincianText = `${new Intl.NumberFormat("id-ID").format(modalS)} + (ayah ${new Intl.NumberFormat("id-ID").format(pinjamA)})`;
-    }
-
+    let targetItem = null;
     const updated = units.map((u) => {
       if (u.id === selectedUnit.id) {
-        return {
+        targetItem = {
           ...u,
           unit: formData.unit,
           hargaBeli: beli,
           modalSendiri: modalS,
           pinjamAyah: pinjamA,
-          rincianText: rincianText,
           hargaJual: jual,
           profit: profit,
           statusUnit: formData.statusUnit,
           statusPinjaman: pinjamanStatus,
           catatan: formData.catatan
         };
+        return targetItem;
       }
       return u;
     });
@@ -333,17 +462,32 @@ export default function PremiumCleanPage() {
     saveUnits(updated);
     setShowEditModal(false);
     setSelectedUnit(null);
+
+    if (isSupabaseConfigured && supabase && targetItem) {
+      try {
+        await supabase.from("penjualan_motor").update(mapToSupabase(targetItem)).eq("id", selectedUnit.id);
+      } catch (e) {
+        console.error("Supabase edit error:", e);
+      }
+    }
   };
 
   // Delete Unit
-  const handleDeleteUnit = (id) => {
+  const handleDeleteUnit = async (id) => {
     if (confirm("Hapus catatan unit ini?")) {
       saveUnits(units.filter((u) => u.id !== id));
+      if (isSupabaseConfigured && supabase) {
+        try {
+          await supabase.from("penjualan_motor").delete().eq("id", id);
+        } catch (e) {
+          console.error("Supabase delete error:", e);
+        }
+      }
     }
   };
 
   // Submit Add New Unit
-  const handleAddUnit = (e) => {
+  const handleAddUnit = async (e) => {
     e.preventDefault();
     if (!formData.unit || !formData.hargaBeli) {
       alert("Harap isi nama unit dan harga beli!");
@@ -357,11 +501,6 @@ export default function PremiumCleanPage() {
     const jual = isSold ? Number(formData.hargaJual) || 0 : 0;
     const profit = isSold ? (formData.profit ? Number(formData.profit) : jual - beli) : 0;
 
-    let rincianText = "";
-    if (pinjamA > 0) {
-      rincianText = `${new Intl.NumberFormat("id-ID").format(modalS)} + (ayah ${new Intl.NumberFormat("id-ID").format(pinjamA)})`;
-    }
-
     const newUnit = {
       id: Date.now().toString(),
       no: units.length + 1,
@@ -369,7 +508,6 @@ export default function PremiumCleanPage() {
       hargaBeli: beli,
       modalSendiri: modalS,
       pinjamAyah: pinjamA,
-      rincianText: rincianText,
       hargaJual: jual,
       profit: profit,
       statusUnit: formData.statusUnit,
@@ -389,6 +527,17 @@ export default function PremiumCleanPage() {
       statusUnit: "READY",
       catatan: ""
     });
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.from("penjualan_motor").insert([mapToSupabase(newUnit)]).select();
+        if (!error && data && data[0]) {
+          setUnits(prev => prev.map(u => u.id === newUnit.id ? { ...u, id: data[0].id.toString() } : u));
+        }
+      } catch (err) {
+        console.error("Supabase add error:", err);
+      }
+    }
   };
 
   const handleBeliChange = (val) => {
@@ -523,6 +672,17 @@ export default function PremiumCleanPage() {
         </div>
 
         <div className="header-tools">
+          {/* Status Database */}
+          <button 
+            type="button"
+            className={`db-badge ${dbStatus === 'connected' ? 'connected' : 'local'}`}
+            onClick={() => setShowDbModal(true)}
+            title="Klik untuk membuka status database & petunjuk koneksi Supabase"
+          >
+            <Database size={13} />
+            {dbStatus === "connected" ? "Cloud DB Terhubung" : "Belum Konek DB (Klik Disini)"}
+          </button>
+
           <button 
             className="btn btn-secondary btn-sm" 
             onClick={handleExportCSV}
@@ -1264,7 +1424,176 @@ export default function PremiumCleanPage() {
           </div>
         </div>
       )}
+
+      {/* Modal: Status & Panduan Koneksi Database */}
+      {showDbModal && (
+        <div className="modal-backdrop" onClick={() => setShowDbModal(false)}>
+          <div className="modal-box" style={{ maxWidth: "620px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Database size={18} style={{ color: "var(--brand-blue)" }} />
+                <h3>Status Database & Sinkronisasi Cloud</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setShowDbModal(false)}>✕</button>
+            </div>
+
+            <div className="modal-content-body" style={{ gap: "16px" }}>
+              {/* Status Banner */}
+              {dbStatus === "connected" ? (
+                <div style={{ 
+                  background: "var(--color-profit-bg)", 
+                  border: "1px solid var(--color-profit-border)", 
+                  padding: "12px 16px", 
+                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "10px"
+                }}>
+                  <div style={{ 
+                    width: "24px", 
+                    height: "24px", 
+                    borderRadius: "50%", 
+                    background: "var(--color-profit)", 
+                    color: "#fff", 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    marginTop: "2px"
+                  }}>
+                    <Check size={14} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: "var(--color-profit)", fontSize: "14px" }}>
+                      Terhubung ke Cloud Database (Supabase PostgreSQL)
+                    </div>
+                    <div style={{ fontSize: "12px", color: "var(--text-body)", marginTop: "4px", lineHeight: "1.5" }}>
+                      Data penjualan aman tersimpan di cloud. Semua perubahan akan langsung tersimpan dan otomatis sinkron antar perangkat (Laptop & HP).
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ 
+                  background: "#FEF2F2", 
+                  border: "1px solid #FECACA", 
+                  padding: "12px 16px", 
+                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "10px"
+                }}>
+                  <AlertCircle size={20} style={{ color: "var(--color-danger)", flexShrink: 0, marginTop: "2px" }} />
+                  <div>
+                    <div style={{ fontWeight: 700, color: "#991B1B", fontSize: "14px" }}>
+                      Saat ini: Database Lokal (Browser / LocalStorage)
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#475569", marginTop: "4px", lineHeight: "1.5" }}>
+                      Aplikasi tetap berjalan normal dan aman, tetapi data baru hanya tersimpan di browser perangkat ini. Ikuti 3 langkah mudah di bawah agar data tersimpan di <strong>Cloud Database (Supabase Gratis)</strong> dan bisa diakses bersama dari HP / Laptop mana saja!
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 3 Panduan Langkah */}
+              <div style={{ marginTop: "4px" }}>
+                <h4 style={{ fontSize: "13px", fontWeight: 700, color: "var(--navy-dark)", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Panduan Menghubungkan ke Supabase (100% Gratis)
+                </h4>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {/* Langkah 1 */}
+                  <div style={{ 
+                    padding: "12px", 
+                    border: "1px solid var(--border-light)", 
+                    borderRadius: "8px", 
+                    background: "#FAFAFA" 
+                  }}>
+                    <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--navy-dark)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span>1. Buat Project Baru di Supabase</span>
+                      <a 
+                        href="https://supabase.com/dashboard" 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        style={{ fontSize: "12px", color: "var(--brand-blue)", display: "inline-flex", alignItems: "center", gap: "4px", textDecoration: "none", fontWeight: 600 }}
+                      >
+                        Buka supabase.com <ExternalLink size={12} />
+                      </a>
+                    </div>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "4px 0 0" }}>
+                      Login dengan GitHub / Google, klik <strong>New Project</strong>, beri nama misalnya <code>penjualan-2stroke</code>.
+                    </p>
+                  </div>
+
+                  {/* Langkah 2 */}
+                  <div style={{ 
+                    padding: "12px", 
+                    border: "1px solid var(--border-light)", 
+                    borderRadius: "8px", 
+                    background: "#FAFAFA" 
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span style={{ fontWeight: 600, fontSize: "13px", color: "var(--navy-dark)" }}>
+                        2. Jalankan Query SQL (Buat Tabel)
+                      </span>
+                      <button 
+                        type="button"
+                        onClick={handleCopySql}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: "4px 10px", fontSize: "11px", gap: "4px" }}
+                      >
+                        {copiedSql ? <Check size={12} style={{ color: "var(--color-profit)" }} /> : <Copy size={12} />}
+                        {copiedSql ? "✓ Berhasil Disalin!" : "Salin Query SQL"}
+                      </button>
+                    </div>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 8px" }}>
+                      Buka menu <strong>SQL Editor</strong> di Supabase, paste skrip di bawah lalu klik <strong>Run</strong>:
+                    </p>
+                    <pre className="code-box" style={{ maxHeight: "120px", fontSize: "11px", margin: 0 }}>
+                      {SQL_SCHEMA_CODE}
+                    </pre>
+                  </div>
+
+                  {/* Langkah 3 */}
+                  <div style={{ 
+                    padding: "12px", 
+                    border: "1px solid var(--border-light)", 
+                    borderRadius: "8px", 
+                    background: "#FAFAFA" 
+                  }}>
+                    <span style={{ fontWeight: 600, fontSize: "13px", color: "var(--navy-dark)" }}>
+                      3. Masukkan Kunci ke File <code>.env.local</code>
+                    </span>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "4px 0 8px" }}>
+                      Salin <strong>Project URL</strong> dan <strong>anon public API key</strong> dari menu <i>Project Settings → API</i> ke file <code>.env.local</code> di folder project:
+                    </p>
+                    <div className="code-box" style={{ fontSize: "11.5px", padding: "8px 12px" }}>
+                      NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co<br />
+                      NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-foot">
+              <button className="btn btn-secondary" onClick={() => setShowDbModal(false)}>
+                Tutup
+              </button>
+              <a 
+                href="https://supabase.com/dashboard" 
+                target="_blank" 
+                rel="noreferrer"
+                className="btn btn-primary"
+                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+              >
+                Buka Supabase <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
