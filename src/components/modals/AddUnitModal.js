@@ -146,7 +146,7 @@ export default function AddUnitModal({ isOpen, onClose, onAddUnit }) {
 
                 <div className="field-group">
                   <label className="field-label" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                    <Calendar size={13} style={{ color: "var(--brand-blue)" }} /> {formData.statusUnit === "SOLD" ? "Tanggal Terjual" : "Tanggal Masuk"}
+                    <Calendar size={13} style={{ color: "var(--brand-blue)" }} /> Tanggal Beli *
                   </label>
                   <input
                     type="date"

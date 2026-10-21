@@ -22,7 +22,7 @@ export default function UnitTable({
           <tr>
             <th style={{ width: "45px" }}>No</th>
             <th style={{ width: "65px" }}>Foto</th>
-            <th style={{ width: "120px" }}>Tanggal</th>
+            <th style={{ width: "120px" }}>Tanggal Beli</th>
             <th>Unit Motor</th>
             <th>Harga Beli Total</th>
             <th>Modal Sendiri</th>
@@ -148,26 +148,23 @@ export default function UnitTable({
                     )}
                   </td>
 
-                  {/* Kolom Khusus: Tanggal Masuk / Laku */}
+                  {/* Kolom Tanggal Beli */}
                   <td style={{ whiteSpace: "nowrap" }}>
                     {item.createdAt ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                        <span style={{ 
-                          fontSize: "10.5px", 
-                          fontWeight: 700, 
-                          textTransform: "uppercase", 
-                          letterSpacing: "0.4px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "3.5px",
-                          color: isSold ? "var(--color-profit)" : "var(--brand-blue)" 
-                        }}>
-                          <Calendar size={10.5} style={{ flexShrink: 0 }} />
-                          {isSold ? "Terjual" : "Masuk"}
-                        </span>
-                        <span className="mono-num" style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-dark)" }}>
-                          {formatTanggalIndo(item.createdAt)}
-                        </span>
+                      <div 
+                        className="mono-num" 
+                        style={{ 
+                          display: "inline-flex", 
+                          alignItems: "center", 
+                          gap: "5px", 
+                          color: "var(--text-dark)", 
+                          fontWeight: 600, 
+                          fontSize: "12.5px" 
+                        }}
+                        title={`Tanggal beli: ${formatTanggalIndo(item.createdAt)}`}
+                      >
+                        <Calendar size={12} style={{ color: "var(--brand-blue)", flexShrink: 0 }} />
+                        <span>{formatTanggalIndo(item.createdAt)}</span>
                       </div>
                     ) : (
                       <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>-</span>
@@ -265,9 +262,38 @@ export default function UnitTable({
 
                   {/* Status Unit */}
                   <td>
-                    <span className={`badge-pill ${item.statusUnit === "SOLD" ? "badge-sold-style" : "badge-ready-style"}`}>
-                      {item.statusUnit === "SOLD" ? "TERJUAL" : "READY"}
-                    </span>
+                    {item.statusUnit === "SOLD" ? (
+                      <div 
+                        onClick={() => onOpenEdit(item)}
+                        style={{ display: "flex", flexDirection: "column", gap: "3px", cursor: "pointer" }}
+                        title="Klik untuk mengubah tanggal jual atau data unit"
+                      >
+                        <span className="badge-pill badge-sold-style" style={{ alignSelf: "flex-start" }}>
+                          TERJUAL
+                        </span>
+                        {(item.soldAt || item.createdAt) && (
+                          <span 
+                            className="mono-num" 
+                            style={{ 
+                              fontSize: "11px", 
+                              fontWeight: 600, 
+                              color: "var(--color-profit)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3.5px",
+                              whiteSpace: "nowrap"
+                            }}
+                          >
+                            <Calendar size={10.5} style={{ flexShrink: 0 }} />
+                            <span>{formatTanggalIndo(item.soldAt || item.createdAt)}</span>
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="badge-pill badge-ready-style">
+                        READY
+                      </span>
+                    )}
                   </td>
 
                   {/* Aksi */}

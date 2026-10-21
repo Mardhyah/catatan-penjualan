@@ -18,6 +18,7 @@ export default function EditUnitModal({ isOpen, unit, onClose, onSave }) {
     unit: "",
     tempatBeli: "",
     tanggal: '',
+    tanggalJual: '',
     hargaBeli: "",
     modalSendiri: "",
     pinjamAyah: "0",
@@ -38,10 +39,15 @@ export default function EditUnitModal({ isOpen, unit, onClose, onSave }) {
         ? unit.createdAt.split("T")[0] 
         : getTodayDateString();
 
+      const initialSoldDate = unit.soldAt 
+        ? unit.soldAt.split("T")[0] 
+        : (unit.createdAt ? unit.createdAt.split("T")[0] : getTodayDateString());
+
       setFormData({
         unit: unit.unit || "",
         tempatBeli: unit.tempatBeli || "",
         tanggal: initialDate,
+        tanggalJual: initialSoldDate,
         hargaBeli: unit.hargaBeli ? unit.hargaBeli.toString() : "",
         modalSendiri: unit.modalSendiri !== undefined ? unit.modalSendiri.toString() : "",
         pinjamAyah: unit.pinjamAyah ? unit.pinjamAyah.toString() : "0",
@@ -109,9 +115,16 @@ export default function EditUnitModal({ isOpen, unit, onClose, onSave }) {
       ? new Date(`${formData.tanggal}T12:00:00Z`).toISOString() 
       : (unit.createdAt || new Date().toISOString());
 
+    const soldAt = formData.statusUnit === "SOLD"
+      ? (formData.tanggalJual 
+          ? new Date(`${formData.tanggalJual}T12:00:00Z`).toISOString() 
+          : (unit.soldAt || unit.createdAt || new Date().toISOString()))
+      : null;
+
     onSave({
       ...formData,
-      createdAt
+      createdAt,
+      soldAt
     });
     onClose();
   };
@@ -141,7 +154,7 @@ export default function EditUnitModal({ isOpen, unit, onClose, onSave }) {
                 />
               </div>
 
-              {/* Tempat Beli & Tanggal Transaksi */}
+              {/* Tempat Beli & Tanggal Beli */}
               <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "12px" }}>
                 <div className="field-group">
                   <label className="field-label" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
@@ -158,7 +171,7 @@ export default function EditUnitModal({ isOpen, unit, onClose, onSave }) {
 
                 <div className="field-group">
                   <label className="field-label" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                    <Calendar size={13} style={{ color: "var(--brand-blue)" }} /> {formData.statusUnit === "SOLD" ? "Tanggal Terjual" : "Tanggal Masuk"}
+                    <Calendar size={13} style={{ color: "var(--brand-blue)" }} /> Tanggal Beli *
                   </label>
                   <input
                     type="date"
@@ -329,38 +342,62 @@ export default function EditUnitModal({ isOpen, unit, onClose, onSave }) {
                 </div>
               </div>
 
-              {/* Terjual Details */}
+              {/* Rincian Penjualan (Hanya Tampil Jika Status Unit: Sudah Terjual) */}
               {formData.statusUnit === "SOLD" && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <div className="field-group">
-                    <label className="field-label">Harga Terjual (Rp) *</label>
-                    <input
-                      type="number"
-                      required
-                      value={formData.hargaJual}
-                      onChange={(e) => {
-                        const j = Number(e.target.value) || 0;
-                        const b = Number(formData.hargaBeli) || 0;
-                        setFormData({ ...formData, hargaJual: e.target.value, profit: (j - b).toString() });
-                      }}
-                      onWheel={(e) => e.target.blur()}
-                      onKeyDown={(e) => (e.key === "ArrowUp" || e.key === "ArrowDown") && e.preventDefault()}
-                      className="field-input"
-                    />
+                <div style={{ 
+                  background: "#F0FDF4", 
+                  border: "1px solid #BBF7D0", 
+                  borderRadius: "8px", 
+                  padding: "14px", 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: "12px" 
+                }}>
+                  <div style={{ fontSize: "12.5px", fontWeight: 700, color: "var(--color-profit)", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Calendar size={14} />
+                    <span>Rincian Terjual (Tanggal & Harga Jual)</span>
                   </div>
-                  <div className="field-group">
-                    <label className="field-label">Profit Bersih (Rp)</label>
-                    <input
-                      type="number"
-                      value={formData.profit}
-                      onChange={(e) => setFormData({ ...formData, profit: e.target.value })}
-                      onWheel={(e) => e.target.blur()}
-                      onKeyDown={(e) => (e.key === "ArrowUp" || e.key === "ArrowDown") && e.preventDefault()}
-                      className="field-input"
-                    />
-                    <span className="field-helper" style={{ color: "var(--color-profit)" }}>
-                      {formatRupiah(Number(formData.profit) || 0)}
-                    </span>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: "12px" }}>
+                    {/* Tanggal Terjual */}
+                    <div className="field-group">
+                      <label className="field-label" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                        <Calendar size={13} style={{ color: "var(--color-profit)" }} /> Tanggal Terjual *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.tanggalJual}
+                        onChange={(e) => setFormData({ ...formData, tanggalJual: e.target.value })}
+                        className="field-input"
+                        style={{ backgroundColor: "#FFFFFF", borderColor: "#86EFAC" }}
+                      />
+                      <span className="field-helper" style={{ fontSize: "11px" }}>
+                        Menentukan keuntungan masuk ke rekap bulan apa
+                      </span>
+                    </div>
+
+                    {/* Harga Terjual */}
+                    <div className="field-group">
+                      <label className="field-label">Harga Terjual (Rp) *</label>
+                      <input
+                        type="number"
+                        required
+                        value={formData.hargaJual}
+                        onChange={(e) => {
+                          const j = Number(e.target.value) || 0;
+                          const b = Number(formData.hargaBeli) || 0;
+                          setFormData({ ...formData, hargaJual: e.target.value, profit: (j - b).toString() });
+                        }}
+                        onWheel={(e) => e.target.blur()}
+                        onKeyDown={(e) => (e.key === "ArrowUp" || e.key === "ArrowDown") && e.preventDefault()}
+                        className="field-input"
+                        style={{ backgroundColor: "#FFFFFF" }}
+                      />
+                      <span className="field-helper" style={{ color: "var(--color-profit)", fontWeight: 600 }}>
+                        Profit: {formatRupiah(Number(formData.profit) || 0)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}

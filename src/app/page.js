@@ -196,6 +196,9 @@ export default function CleanPenjualan2StrokePage() {
     const jual = isSold ? Number(formData.hargaJual) || 0 : 0;
     const profit = isSold ? (formData.profit ? Number(formData.profit) : jual - beli) : 0;
     const createdAt = formData.createdAt || selectedUnit.createdAt || new Date().toISOString();
+    const finalSoldAt = isSold 
+      ? (formData.soldAt || selectedUnit.soldAt || new Date().toISOString()) 
+      : null;
 
     const updated = units.map((u) => {
       if (u.id === selectedUnit.id) {
@@ -212,7 +215,8 @@ export default function CleanPenjualan2StrokePage() {
           statusPinjaman: pinjam > 0 ? formData.statusPinjaman : "TIDAK_PINJAM",
           foto: formData.foto || "",
           catatan: formData.catatan || "",
-          createdAt
+          createdAt,
+          soldAt: finalSoldAt
         };
       }
       return u;
@@ -235,7 +239,7 @@ export default function CleanPenjualan2StrokePage() {
           foto: formData.foto || "",
           catatan: formData.catatan || "",
           created_at: createdAt,
-          updated_at: new Date().toISOString()
+          updated_at: isSold ? (finalSoldAt || new Date().toISOString()) : new Date().toISOString()
         };
         await supabase.from("penjualan_motor").update(payload).eq("id", selectedUnit.id);
       } catch (e) {
@@ -255,7 +259,7 @@ export default function CleanPenjualan2StrokePage() {
           : selectedUnit.statusPinjaman
         : "TIDAK_PINJAM";
 
-    const updatedCreatedAt = soldDate || selectedUnit.createdAt || new Date().toISOString();
+    const finalSoldAt = soldDate || new Date().toISOString();
 
     const updated = units.map((u) => {
       if (u.id === selectedUnit.id) {
@@ -265,7 +269,8 @@ export default function CleanPenjualan2StrokePage() {
           profit,
           statusUnit: "SOLD",
           statusPinjaman: updatedStatusPinjaman,
-          createdAt: updatedCreatedAt
+          soldAt: finalSoldAt
+          // createdAt tetap utuh sebagai Tanggal Beli
         };
       }
       return u;
@@ -282,8 +287,7 @@ export default function CleanPenjualan2StrokePage() {
             profit,
             status_unit: "SOLD",
             status_pinjaman: updatedStatusPinjaman,
-            created_at: updatedCreatedAt,
-            updated_at: new Date().toISOString()
+            updated_at: finalSoldAt
           })
           .eq("id", selectedUnit.id);
       } catch (e) {
@@ -346,7 +350,7 @@ export default function CleanPenjualan2StrokePage() {
     }
 
     units.forEach((u) => {
-      const ym = getYearMonth(u.createdAt);
+      const ym = getYearMonth(u.statusUnit === "SOLD" ? (u.soldAt || u.createdAt) : u.createdAt);
       if (ym && !monthMap.has(ym)) {
         monthMap.set(ym, {
           yearMonth: ym,
@@ -365,7 +369,7 @@ export default function CleanPenjualan2StrokePage() {
 
     units.forEach((u) => {
       if (u.statusUnit === "SOLD") {
-        const ym = getYearMonth(u.createdAt) || currentYm;
+        const ym = getYearMonth(u.soldAt || u.createdAt) || currentYm;
         if (!groups[ym]) {
           groups[ym] = {
             yearMonth: ym,
@@ -404,7 +408,7 @@ export default function CleanPenjualan2StrokePage() {
     let currentMonthProfit = 0;
 
     units.forEach((u) => {
-      const uYm = getYearMonth(u.createdAt);
+      const uYm = getYearMonth(u.statusUnit === "SOLD" ? (u.soldAt || u.createdAt) : u.createdAt);
 
       if (u.statusUnit === "SOLD") {
         allTimeSoldUnits += 1;
@@ -451,34 +455,41 @@ export default function CleanPenjualan2StrokePage() {
     };
   }, [units, selectedMonth, currentYm]);
 
-  // Filtered Units
+  // Filtered Units - Diurutkan berdasarkan Tanggal Beli (terbaru di atas)
   const filteredUnits = useMemo(() => {
-    return units.filter((u) => {
-      let matchSearch = true;
-      if (search.trim()) {
-        const query = search.toLowerCase();
-        matchSearch =
-          u.unit.toLowerCase().includes(query) ||
-          (u.catatan && u.catatan.toLowerCase().includes(query)) ||
-          (u.tempatBeli && u.tempatBeli.toLowerCase().includes(query));
-      }
+    return units
+      .filter((u) => {
+        let matchSearch = true;
+        if (search.trim()) {
+          const query = search.toLowerCase();
+          matchSearch =
+            u.unit.toLowerCase().includes(query) ||
+            (u.catatan && u.catatan.toLowerCase().includes(query)) ||
+            (u.tempatBeli && u.tempatBeli.toLowerCase().includes(query));
+        }
 
-      let matchStatus = true;
-      if (filterStatus === "READY") matchStatus = u.statusUnit === "READY";
-      if (filterStatus === "SOLD") matchStatus = u.statusUnit === "SOLD";
+        let matchStatus = true;
+        if (filterStatus === "READY") matchStatus = u.statusUnit === "READY";
+        if (filterStatus === "SOLD") matchStatus = u.statusUnit === "SOLD";
 
-      let matchPinjaman = true;
-      if (filterPinjaman === "PENDING") {
-        matchPinjaman = u.pinjamAyah > 0 && u.statusPinjaman === "BELUM_DIKEMBALIKAN";
-      }
+        let matchPinjaman = true;
+        if (filterPinjaman === "PENDING") {
+          matchPinjaman = u.pinjamAyah > 0 && u.statusPinjaman === "BELUM_DIKEMBALIKAN";
+        }
 
-      let matchMonth = true;
-      if (selectedMonth !== "ALL") {
-        matchMonth = getYearMonth(u.createdAt) === selectedMonth;
-      }
+        let matchMonth = true;
+        if (selectedMonth !== "ALL") {
+          const uMonth = getYearMonth(u.statusUnit === "SOLD" ? (u.soldAt || u.createdAt) : u.createdAt);
+          matchMonth = uMonth === selectedMonth;
+        }
 
-      return matchSearch && matchStatus && matchPinjaman && matchMonth;
-    });
+        return matchSearch && matchStatus && matchPinjaman && matchMonth;
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.createdAt || 0).getTime();
+        const timeB = new Date(b.createdAt || 0).getTime();
+        return timeB - timeA; // Tanggal Beli paling baru berada di paling atas
+      });
   }, [units, search, filterStatus, filterPinjaman, selectedMonth]);
 
   return (

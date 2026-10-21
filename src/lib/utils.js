@@ -63,7 +63,8 @@ export const mapFromSupabase = (row) => ({
   statusPinjaman: row.status_pinjaman || "TIDAK_PINJAM",
   foto: row.foto || "",
   catatan: row.catatan || "",
-  createdAt: row.created_at || new Date().toISOString()
+  createdAt: row.created_at || new Date().toISOString(),
+  soldAt: row.status_unit === "SOLD" ? (row.updated_at || row.created_at) : null
 });
 
 // Mapper ke Supabase (camelCase -> snake_case)
@@ -80,7 +81,8 @@ export const mapToSupabase = (item) => ({
   status_pinjaman: item.statusPinjaman,
   foto: item.foto || "",
   catatan: item.catatan || "",
-  created_at: item.createdAt || new Date().toISOString()
+  created_at: item.createdAt || new Date().toISOString(),
+  updated_at: item.statusUnit === "SOLD" ? (item.soldAt || new Date().toISOString()) : new Date().toISOString()
 });
 
 // Kompresi foto di sisi browser (Max 800px dimensi, ~80-120KB)
@@ -124,13 +126,14 @@ export const compressPhoto = (file, callback) => {
 
 // Export array units ke CSV dan unduh di browser
 export const exportToCSV = (units) => {
-  let csv = "No,Tanggal,Unit Motor,Tempat Beli,Harga Beli Total,Modal Sendiri,Duit Ayah,Status Pinjaman,Harga Terjual,Profit Bersih,Status Unit,Catatan\n";
+  let csv = "No,Tanggal Beli,Tanggal Terjual,Unit Motor,Tempat Beli,Harga Beli Total,Modal Sendiri,Duit Ayah,Status Pinjaman,Harga Terjual,Profit Bersih,Status Unit,Catatan\n";
   
   units.forEach((u, i) => {
     const modalS = u.modalSendiri ?? (u.hargaBeli - (u.pinjamAyah || 0));
     const row = [
       i + 1,
       `"${formatTanggalIndo(u.createdAt)}"`,
+      `"${u.statusUnit === "SOLD" ? formatTanggalIndo(u.soldAt || u.createdAt) : "-"}"`,
       `"${u.unit.replace(/"/g, '""')}"`,
       `"${(u.tempatBeli || "").replace(/"/g, '""')}"`,
       u.hargaBeli,
